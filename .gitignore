@@ -1,0 +1,41 @@
+# Rust
+/target/
+Cargo.lock
+*.rs.bk
+*.pdb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test artifacts
+/tmp/
+*.log
+/dolda_data/
+/test_data/
+/benchmark_results/
+
+# Production data
+/data/
+/logs/
+*.db
+*.dat
+/segments/
+
+# Build artifacts
+/dist/
+/build/
+*.o
+*.a
+*.so
+*.dylib
+
+# Temporary files
+.env
+.env.local
+*.tmp
+
