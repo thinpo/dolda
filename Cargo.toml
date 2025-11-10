@@ -3,9 +3,9 @@ name = "dolda"
 version = "0.1.0"
 edition = "2021"
 authors = ["DOLDA Team"]
-description = "DolphinDB-inspired Distributed Database Architecture in Rust"
+description = "High-Performance Distributed Persistent Queue with Raft Consensus"
 license = "MIT OR Apache-2.0"
-keywords = ["distributed", "database", "dolphindb", "rust"]
+keywords = ["distributed", "queue", "storage", "raft", "persistent"]
 categories = ["database", "concurrency"]
 
 [dependencies]

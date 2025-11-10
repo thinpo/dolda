@@ -1,7 +1,7 @@
-//! # DOLDA - DolphinDB-inspired Distributed Database Architecture
+//! # DOLDA - Distributed Object Layer for Data Access
 //!
-//! This crate implements a distributed database architecture inspired by DolphinDB,
-//! demonstrating key concepts from their shared-nothing distributed system.
+//! DOLDA is a high-performance distributed persistent queue built in Rust,
+//! featuring zero-copy operations, Raft consensus, and production-grade reliability.
 //!
 //! ## Architecture Features
 //!
