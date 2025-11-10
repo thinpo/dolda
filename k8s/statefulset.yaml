@@ -1,0 +1,161 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: dolda
+  namespace: dolda
+  labels:
+    app: dolda
+spec:
+  serviceName: dolda-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dolda
+  template:
+    metadata:
+      labels:
+        app: dolda
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      affinity:
+        # Spread pods across different nodes
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - dolda
+                topologyKey: kubernetes.io/hostname
+      
+      containers:
+        - name: dolda
+          image: dolda:latest  # Replace with your registry
+          imagePullPolicy: IfNotPresent
+          
+          ports:
+            - name: service
+              containerPort: 8080
+              protocol: TCP
+            - name: health
+              containerPort: 8081
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+            - name: raft
+              containerPort: 7000
+              protocol: TCP
+          
+          env:
+            # Pod identity
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            
+            # Extract node ID from pod name (dolda-0, dolda-1, dolda-2)
+            - name: DOLDA_NODE_ID
+              value: "$(echo $POD_NAME | sed 's/dolda-//')"
+            - name: DOLDA_NODE_NAME
+              value: "$(POD_NAME)"
+            
+            # Peer discovery using StatefulSet DNS
+            - name: DOLDA_PEERS
+              value: "dolda-0.dolda-headless.dolda.svc.cluster.local:7000,dolda-1.dolda-headless.dolda.svc.cluster.local:7000,dolda-2.dolda-headless.dolda.svc.cluster.local:7000"
+          
+          envFrom:
+            - configMapRef:
+                name: dolda-config
+          
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: logs
+              mountPath: /logs
+          
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+          
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: health
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: health
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 30  # 5 minutes max startup time
+      
+      terminationGracePeriodSeconds: 30
+      
+      # Security context
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+  
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app: dolda
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: fast-ssd  # Adjust to your storage class
+        resources:
+          requests:
+            storage: 100Gi
+    
+    - metadata:
+        name: logs
+        labels:
+          app: dolda
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: standard  # Logs can use slower storage
+        resources:
+          requests:
+            storage: 10Gi
+  
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: 0
+

@@ -1,0 +1,23 @@
+# ServiceMonitor for Prometheus Operator
+# Only apply if you have Prometheus Operator installed
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: dolda
+  namespace: dolda
+  labels:
+    app: dolda
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: dolda
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scheme: http
+  namespaceSelector:
+    matchNames:
+      - dolda
+

@@ -1,0 +1,78 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dolda-network-policy
+  namespace: dolda
+  labels:
+    app: dolda
+spec:
+  podSelector:
+    matchLabels:
+      app: dolda
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  ingress:
+    # Allow service traffic
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8080
+    
+    # Allow health checks
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: TCP
+          port: 8081
+    
+    # Allow metrics scraping
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - protocol: TCP
+          port: 9090
+    
+    # Allow Raft communication between pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app: dolda
+      ports:
+        - protocol: TCP
+          port: 7000
+  
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+    
+    # Allow communication between DOLDA nodes
+    - to:
+        - podSelector:
+            matchLabels:
+              app: dolda
+      ports:
+        - protocol: TCP
+          port: 7000
+        - protocol: TCP
+          port: 8080
+    
+    # Allow HTTPS for external services (if needed)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+

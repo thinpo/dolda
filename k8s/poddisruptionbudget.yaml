@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: dolda-pdb
+  namespace: dolda
+  labels:
+    app: dolda
+spec:
+  minAvailable: 2  # Always keep at least 2 nodes running (quorum)
+  selector:
+    matchLabels:
+      app: dolda
+

@@ -1,0 +1,80 @@
+---
+# Headless Service for StatefulSet DNS
+apiVersion: v1
+kind: Service
+metadata:
+  name: dolda-headless
+  namespace: dolda
+  labels:
+    app: dolda
+spec:
+  clusterIP: None  # Headless service
+  selector:
+    app: dolda
+  ports:
+    - name: service
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+    - name: raft
+      port: 7000
+      targetPort: 7000
+      protocol: TCP
+    - name: health
+      port: 8081
+      targetPort: 8081
+      protocol: TCP
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+
+---
+# LoadBalancer Service for external access
+apiVersion: v1
+kind: Service
+metadata:
+  name: dolda-service
+  namespace: dolda
+  labels:
+    app: dolda
+  annotations:
+    # Cloud provider specific annotations (adjust as needed)
+    # AWS
+    # service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    # GCP
+    # cloud.google.com/load-balancer-type: "Internal"
+    # Azure
+    # service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+spec:
+  type: LoadBalancer
+  selector:
+    app: dolda
+  ports:
+    - name: service
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600
+
+---
+# Service for metrics scraping
+apiVersion: v1
+kind: Service
+metadata:
+  name: dolda-metrics
+  namespace: dolda
+  labels:
+    app: dolda
+spec:
+  selector:
+    app: dolda
+  ports:
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+

@@ -39,3 +39,11 @@ Cargo.lock
 .env.local
 *.tmp
 
+# Docker
+.dockerignore
+
+# Monitoring data
+monitoring/grafana/data/
+prometheus-data/
+grafana-data/
+

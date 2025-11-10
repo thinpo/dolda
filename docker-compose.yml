@@ -1,0 +1,180 @@
+version: '3.8'
+
+services:
+  # DOLDA Node 1 (Leader candidate)
+  dolda-node1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dolda-node1
+    hostname: dolda-node1
+    ports:
+      - "8080:8080"  # Service
+      - "8081:8081"  # Health
+      - "9090:9090"  # Metrics
+      - "7001:7000"  # Raft
+    environment:
+      - DOLDA_NODE_ID=1
+      - DOLDA_NODE_NAME=node1
+      - DOLDA_LISTEN_ADDR=0.0.0.0:8080
+      - DOLDA_RAFT_ADDR=0.0.0.0:7000
+      - DOLDA_HEALTH_ADDR=0.0.0.0:8081
+      - DOLDA_METRICS_ADDR=0.0.0.0:9090
+      - DOLDA_DATA_DIR=/data
+      - DOLDA_LOG_LEVEL=info
+      - DOLDA_PEERS=dolda-node2:7000,dolda-node3:7000
+      - RUST_LOG=info
+      - RUST_BACKTRACE=1
+    volumes:
+      - dolda-data1:/data
+      - dolda-logs1:/logs
+    networks:
+      - dolda-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # DOLDA Node 2
+  dolda-node2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dolda-node2
+    hostname: dolda-node2
+    ports:
+      - "8082:8080"  # Service
+      - "8083:8081"  # Health
+      - "9091:9090"  # Metrics
+      - "7002:7000"  # Raft
+    environment:
+      - DOLDA_NODE_ID=2
+      - DOLDA_NODE_NAME=node2
+      - DOLDA_LISTEN_ADDR=0.0.0.0:8080
+      - DOLDA_RAFT_ADDR=0.0.0.0:7000
+      - DOLDA_HEALTH_ADDR=0.0.0.0:8081
+      - DOLDA_METRICS_ADDR=0.0.0.0:9090
+      - DOLDA_DATA_DIR=/data
+      - DOLDA_LOG_LEVEL=info
+      - DOLDA_PEERS=dolda-node1:7000,dolda-node3:7000
+      - RUST_LOG=info
+      - RUST_BACKTRACE=1
+    volumes:
+      - dolda-data2:/data
+      - dolda-logs2:/logs
+    networks:
+      - dolda-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    depends_on:
+      - dolda-node1
+
+  # DOLDA Node 3
+  dolda-node3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dolda-node3
+    hostname: dolda-node3
+    ports:
+      - "8084:8080"  # Service
+      - "8085:8081"  # Health
+      - "9092:9090"  # Metrics
+      - "7003:7000"  # Raft
+    environment:
+      - DOLDA_NODE_ID=3
+      - DOLDA_NODE_NAME=node3
+      - DOLDA_LISTEN_ADDR=0.0.0.0:8080
+      - DOLDA_RAFT_ADDR=0.0.0.0:7000
+      - DOLDA_HEALTH_ADDR=0.0.0.0:8081
+      - DOLDA_METRICS_ADDR=0.0.0.0:9090
+      - DOLDA_DATA_DIR=/data
+      - DOLDA_LOG_LEVEL=info
+      - DOLDA_PEERS=dolda-node1:7000,dolda-node2:7000
+      - RUST_LOG=info
+      - RUST_BACKTRACE=1
+    volumes:
+      - dolda-data3:/data
+      - dolda-logs3:/logs
+    networks:
+      - dolda-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    depends_on:
+      - dolda-node1
+
+  # Prometheus (optional monitoring)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: dolda-prometheus
+    ports:
+      - "9093:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    networks:
+      - dolda-network
+    restart: unless-stopped
+
+  # Grafana (optional monitoring)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: dolda-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - dolda-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+networks:
+  dolda-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  dolda-data1:
+    driver: local
+  dolda-data2:
+    driver: local
+  dolda-data3:
+    driver: local
+  dolda-logs1:
+    driver: local
+  dolda-logs2:
+    driver: local
+  dolda-logs3:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
