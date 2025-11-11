@@ -32,6 +32,7 @@ pub mod persistq; // persistQ implementation using DOLDA
 pub mod observability; // Metrics and tracing
 pub mod health; // Health check and monitoring server
 pub mod resilience; // Error recovery and resilience patterns
+pub mod datafusion_layer; // SQL query layer with Apache DataFusion
 
 // Error handling
 pub type Result<T> = std::result::Result<T, DOLDAError>;
