@@ -20,7 +20,7 @@ Complete documentation for the DOLDA distributed persistent queue system.
 
 ### Applications
 - **[HFT Trading Server](HFT_TRADING_GUIDE.md)** - Complete trading system example
-- **[Two-Trader Competition](TWO_TRADERS_GUIDE.md)** - Momentum vs Mean Reversion battle
+- **[Three-Trader Competition](TWO_TRADERS_GUIDE.md)** - Momentum vs Mean Reversion with Market Maker
 
 ### Deployment & Operations
 - **[Cluster Setup](CLUSTER_SETUP_GUIDE.md)** - Multi-node deployment
@@ -68,8 +68,8 @@ Complete documentation for the DOLDA distributed persistent queue system.
 **Build an HFT trading system**
 → See [HFT Trading Guide](HFT_TRADING_GUIDE.md)
 
-**Watch traders compete**
-→ Run [Two-Trader Competition](TWO_TRADERS_GUIDE.md)
+**Watch three traders compete with a Market Maker**
+→ Run [Three-Trader Competition](TWO_TRADERS_GUIDE.md)
 
 ---
 

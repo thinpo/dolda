@@ -628,6 +628,155 @@ impl MeanReversionTrader {
 }
 
 // ============================================================================
+// Trader 3: Market Maker (Liquidity Provider)
+// ============================================================================
+
+struct MarketMaker {
+    trader_id: String,
+    cash: f64,
+    positions: HashMap<String, i64>,
+    realized_pnl: f64,
+    trade_history: VecDeque<Trade>,
+    order_counter: u64,
+    spread_captured: f64,  // Total spread profits
+    inventory_target: i64,  // Target inventory (usually 0)
+}
+
+impl MarketMaker {
+    fn new(trader_id: String, initial_cash: f64) -> Self {
+        Self {
+            trader_id,
+            cash: initial_cash,
+            positions: HashMap::new(),
+            realized_pnl: 0.0,
+            trade_history: VecDeque::new(),
+            order_counter: 0,
+            spread_captured: 0.0,
+            inventory_target: 0,
+        }
+    }
+
+    fn generate_quote(&mut self, market: &MarketUpdate, timestamp: u64) -> Quote {
+        let position = self.positions.get(&market.symbol).copied().unwrap_or(0);
+        
+        // Very tight spread for market making (0.01 - 0.02)
+        let base_spread = 0.015;
+        
+        // Inventory risk management - skew quotes to reduce position
+        // If long, push bid down and ask down to encourage selling
+        // If short, push bid up and ask up to encourage buying
+        let inventory_skew = (position as f64 / 500.0) * 0.01;
+        
+        let mid = market.last_price;
+        let bid_price = mid - base_spread / 2.0 - inventory_skew;
+        let ask_price = mid + base_spread / 2.0 - inventory_skew;
+        
+        // Size based on how far we are from target inventory
+        let inventory_distance = (position - self.inventory_target).abs();
+        let base_size = 300;
+        
+        // Reduce size if large inventory to manage risk
+        let size_multiplier = 1.0 - (inventory_distance as f64 / 2000.0).min(0.5);
+        let size = (base_size as f64 * size_multiplier) as i64;
+        
+        Quote {
+            trader_id: self.trader_id.clone(),
+            symbol: market.symbol.clone(),
+            bid_price: (bid_price * 100.0).round() / 100.0,
+            bid_size: size.max(50),
+            ask_price: (ask_price * 100.0).round() / 100.0,
+            ask_size: size.max(50),
+            timestamp,
+        }
+    }
+
+    fn generate_order(&mut self, market: &MarketUpdate, timestamp: u64) -> Option<Order> {
+        let position = self.positions.get(&market.symbol).copied().unwrap_or(0);
+        
+        // Aggressively flatten inventory if too large
+        if position.abs() > 800 {
+            self.order_counter += 1;
+            
+            let flatten_size = (position.abs() / 4).max(100); // Flatten 25% at a time
+            
+            if position > 0 {
+                // Long position - sell to flatten
+                Some(Order {
+                    order_id: format!("{}-O{}", self.trader_id, self.order_counter),
+                    trader_id: self.trader_id.clone(),
+                    symbol: market.symbol.clone(),
+                    side: Side::Sell,
+                    order_type: OrderType::IOC,
+                    price: market.bid_price - 0.01, // Aggressive
+                    quantity: flatten_size,
+                    timestamp,
+                })
+            } else {
+                // Short position - buy to flatten
+                Some(Order {
+                    order_id: format!("{}-O{}", self.trader_id, self.order_counter),
+                    trader_id: self.trader_id.clone(),
+                    symbol: market.symbol.clone(),
+                    side: Side::Buy,
+                    order_type: OrderType::IOC,
+                    price: market.ask_price + 0.01, // Aggressive
+                    quantity: flatten_size,
+                    timestamp,
+                })
+            }
+        } else {
+            None
+        }
+    }
+
+    fn process_trade(&mut self, trade: &Trade) {
+        if trade.buyer_id == self.trader_id {
+            let position = self.positions.entry(trade.symbol.clone()).or_insert(0);
+            *position += trade.quantity;
+            self.cash -= trade.price * trade.quantity as f64;
+            
+            // Track spread capture (we bought, hopefully at bid)
+            // Simplified: assume we're providing liquidity
+        } else if trade.seller_id == self.trader_id {
+            let position = self.positions.entry(trade.symbol.clone()).or_insert(0);
+            *position -= trade.quantity;
+            self.cash += trade.price * trade.quantity as f64;
+            
+            // Track spread capture (we sold, hopefully at ask)
+        }
+        
+        self.trade_history.push_back(trade.clone());
+        if self.trade_history.len() > 100 {
+            self.trade_history.pop_front();
+        }
+    }
+
+    fn calculate_equity(&self, market_price: f64) -> f64 {
+        let position_value: f64 = self.positions.values()
+            .map(|&qty| qty as f64 * market_price)
+            .sum();
+        
+        self.cash + position_value
+    }
+
+    fn get_position_report(&self, market_price: f64, timestamp: u64) -> PositionReport {
+        let unrealized_pnl: f64 = self.positions.values()
+            .map(|&qty| qty as f64 * market_price)
+            .sum();
+        
+        PositionReport {
+            trader_id: self.trader_id.clone(),
+            cash: self.cash,
+            positions: self.positions.clone(),
+            realized_pnl: self.realized_pnl,
+            unrealized_pnl,
+            total_equity: self.calculate_equity(market_price),
+            timestamp,
+        }
+    }
+}
+
+// ============================================================================
 // Main Competition
 // ============================================================================
 
@@ -637,8 +786,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_max_level(tracing::Level::INFO)
         .init();
 
-    info!("🎯 Starting Two-Trader Competition");
-    info!("═══════════════════════════════════");
+    info!("🎯 Starting Three-Trader Competition (with Market Maker)");
+    info!("═══════════════════════════════════════════════════════════");
 
     // Initialize DOLDA mailbox system
     let temp_dir = tempfile::tempdir()?;
@@ -658,6 +807,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut trader1 = MomentumTrader::new("MOMENTUM-1".to_string(), initial_capital);
     let mut trader2 = MeanReversionTrader::new("MEANREV-2".to_string(), initial_capital);
+    let mut market_maker = MarketMaker::new("MARKETMKR-3".to_string(), initial_capital);
 
     // Initialize order book
     let symbol = "COMP".to_string();
@@ -667,7 +817,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("💰 Initial Capital: ${:.2} each", initial_capital);
     info!("🎲 Symbol: {}", symbol);
     info!("💲 Initial Price: ${:.2}", initial_price);
-    info!("🛑 Stop Condition: Equity < ${:.2} (20% loss)", initial_capital * loss_threshold);
+    info!("🛑 Stop Condition: Equity < ${:.2} (20% loss) - for competing traders only", initial_capital * loss_threshold);
+    info!("📊 Traders: MOMENTUM-1 (trend), MEANREV-2 (revert), MARKETMKR-3 (liquidity)");
     info!("");
 
     let start_time = Instant::now();
@@ -692,20 +843,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Update traders with market data
         trader1.update_market(&market_update);
         trader2.update_market(&market_update);
+        // MM doesn't need market history, just current prices
 
-        // Generate quotes
+        // Generate quotes (MM quotes every iteration for tight markets)
         let quote1 = trader1.generate_quote(&market_update, timestamp);
         let quote2 = trader2.generate_quote(&market_update, timestamp);
+        let quote_mm = market_maker.generate_quote(&market_update, timestamp);
 
         // Update order book with quotes
         order_book.update_quote(quote1.clone());
         order_book.update_quote(quote2.clone());
+        order_book.update_quote(quote_mm.clone());
 
         // Send quotes to mailbox (logging only)
         let quote1_data = bincode::serialize(&MessageType::Quote(quote1))?;
         let quote2_data = bincode::serialize(&MessageType::Quote(quote2))?;
+        let quote_mm_data = bincode::serialize(&MessageType::Quote(quote_mm))?;
         let _ = quotes_mb.send_to("quotes@competition", &quote1_data).await;
         let _ = quotes_mb.send_to("quotes@competition", &quote2_data).await;
+        let _ = quotes_mb.send_to("quotes@competition", &quote_mm_data).await;
 
         // Generate orders (more frequently for active competition)
         if iteration % 3 == 0 {
@@ -715,6 +871,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 for trade in &trades {
                     trader1.process_trade(trade);
                     trader2.process_trade(trade);
+                    market_maker.process_trade(trade);
                     
                     let trade_data = bincode::serialize(&MessageType::Trade(trade.clone()))?;
                     let _ = trades_mb.send_to("trades@competition", &trade_data).await;
@@ -727,6 +884,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 for trade in &trades {
                     trader1.process_trade(trade);
                     trader2.process_trade(trade);
+                    market_maker.process_trade(trade);
+                    
+                    let trade_data = bincode::serialize(&MessageType::Trade(trade.clone()))?;
+                    let _ = trades_mb.send_to("trades@competition", &trade_data).await;
+                }
+            }
+            
+            // MM tries to flatten inventory
+            if let Some(order) = market_maker.generate_order(&market_update, timestamp) {
+                let trades = order_book.match_order(order.clone());
+                
+                for trade in &trades {
+                    trader1.process_trade(trade);
+                    trader2.process_trade(trade);
+                    market_maker.process_trade(trade);
                     
                     let trade_data = bincode::serialize(&MessageType::Trade(trade.clone()))?;
                     let _ = trades_mb.send_to("trades@competition", &trade_data).await;
@@ -738,8 +910,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let market_price = order_book.last_trade_price;
         let equity1 = trader1.calculate_equity(market_price);
         let equity2 = trader2.calculate_equity(market_price);
+        let equity_mm = market_maker.calculate_equity(market_price);
 
-        // Check stop condition
+        // Check stop condition (only for competing traders, not MM)
         if equity1 < initial_capital * loss_threshold || equity2 < initial_capital * loss_threshold {
             info!("");
             info!("🛑 STOP CONDITION REACHED!");
@@ -747,6 +920,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             
             let report1 = trader1.get_position_report(market_price, timestamp);
             let report2 = trader2.get_position_report(market_price, timestamp);
+            let report_mm = market_maker.get_position_report(market_price, timestamp);
             
             info!("📊 Final Results:");
             info!("");
@@ -764,9 +938,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             info!("    📈 P&L: ${:.2}", report2.total_equity - initial_capital);
             info!("    📉 Return: {:.2}%", (report2.total_equity / initial_capital - 1.0) * 100.0);
             info!("");
+            info!("  {} (Market Maker)", market_maker.trader_id);
+            info!("    💰 Total Equity: ${:.2}", report_mm.total_equity);
+            info!("    💵 Cash: ${:.2}", report_mm.cash);
+            info!("    📦 Position: {:?}", report_mm.positions);
+            info!("    📈 P&L: ${:.2}", report_mm.total_equity - initial_capital);
+            info!("    📉 Return: {:.2}%", (report_mm.total_equity / initial_capital - 1.0) * 100.0);
+            info!("    💸 Spread Captured: ${:.2}", market_maker.spread_captured);
+            info!("");
             
             let winner = if equity1 > equity2 { &trader1.trader_id } else { &trader2.trader_id };
-            info!("🏆 Winner: {}", winner);
+            info!("🏆 Winner (competing traders): {}", winner);
+            info!("💹 Market Maker P&L: ${:.2} ({:.2}%)", 
+                  report_mm.total_equity - initial_capital,
+                  (report_mm.total_equity / initial_capital - 1.0) * 100.0);
             info!("⏱️  Duration: {:.2}s", start_time.elapsed().as_secs_f64());
             info!("🔄 Iterations: {}", iteration);
             info!("💱 Total Trades: {}", order_book.trades.len());
@@ -783,6 +968,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                   trader1.trader_id, equity1, trader1.positions.get(&symbol).unwrap_or(&0));
             info!("   {} Equity: ${:.2} | Pos: {:?}", 
                   trader2.trader_id, equity2, trader2.positions.get(&symbol).unwrap_or(&0));
+            info!("   {} Equity: ${:.2} | Pos: {:?} | Trades: {}", 
+                  market_maker.trader_id, equity_mm, 
+                  market_maker.positions.get(&symbol).unwrap_or(&0),
+                  market_maker.trade_history.len());
             info!("");
             
             last_report_time = Instant::now();
