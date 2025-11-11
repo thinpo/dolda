@@ -39,41 +39,54 @@ pub mod mailbox_processor; // Message processors with SQL query support
 // Error handling
 pub type Result<T> = std::result::Result<T, DOLDAError>;
 
-#[derive(Debug)]
+/// Unified error type for all DOLDA operations
+#[derive(Debug, thiserror::Error)]
 pub enum DOLDAError {
-    Io(std::io::Error),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    
+    #[error("Network error: {0}")]
     Network(String),
+    
+    #[error("Partition error: {0}")]
     Partition(String),
+    
+    #[error("Filesystem error: {0}")]
     Filesystem(String),
+    
+    #[error("Node error: {0}")]
     Node(String),
+    
+    #[error("Config error: {0}")]
     Config(String),
-    Serialization(Box<bincode::ErrorKind>),
-}
-
-impl std::fmt::Display for DOLDAError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DOLDAError::Io(e) => write!(f, "IO error: {}", e),
-            DOLDAError::Network(s) => write!(f, "Network error: {}", s),
-            DOLDAError::Partition(s) => write!(f, "Partition error: {}", s),
-            DOLDAError::Filesystem(s) => write!(f, "Filesystem error: {}", s),
-            DOLDAError::Node(s) => write!(f, "Node error: {}", s),
-            DOLDAError::Config(s) => write!(f, "Config error: {}", s),
-            DOLDAError::Serialization(e) => write!(f, "Serialization error: {}", e),
-        }
-    }
-}
-
-impl std::error::Error for DOLDAError {}
-
-impl From<std::io::Error> for DOLDAError {
-    fn from(err: std::io::Error) -> Self {
-        DOLDAError::Io(err)
-    }
-}
-
-impl From<Box<bincode::ErrorKind>> for DOLDAError {
-    fn from(err: Box<bincode::ErrorKind>) -> Self {
-        DOLDAError::Serialization(err)
-    }
+    
+    #[error("Serialization error: {0}")]
+    Serialization(#[from] Box<bincode::ErrorKind>),
+    
+    #[error("Storage error: {0}")]
+    Storage(#[from] crate::storage::StorageError),
+    
+    #[error("Record error: {0}")]
+    Record(#[from] crate::record::RecordError),
+    
+    #[error("Compaction error: {0}")]
+    Compaction(#[from] crate::compaction::CompactionError),
+    
+    #[error("Resilience error: {0}")]
+    Resilience(#[from] crate::resilience::ResilienceError),
+    
+    #[error("Network error: {0}")]
+    NetworkLayer(#[from] crate::network::NetworkError),
+    
+    #[error("Raft error: {0}")]
+    Raft(#[from] crate::raft::RaftError),
+    
+    #[error("DataFusion error: {0}")]
+    DataFusion(#[from] crate::datafusion_layer::DataFusionError),
+    
+    #[error("Mailbox error: {0}")]
+    Mailbox(#[from] crate::mailbox::MailboxError),
+    
+    #[error("Processor error: {0}")]
+    Processor(#[from] crate::mailbox_processor::ProcessorError),
 }

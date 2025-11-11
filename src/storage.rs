@@ -3,7 +3,7 @@
 //! This module provides the core storage engine that uses the production
 //! Record format for all data operations.
 
-use crate::record::{Record, RecordError, RECORD_HEADER_SIZE};
+use crate::record::{Record, RecordError};
 use crate::observability;
 use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions};
@@ -50,9 +50,11 @@ struct IndexEntry {
     record_num: u64,
     /// Byte offset in segment
     offset: u64,
-    /// Record size
+    /// Record size (reserved for future use)
+    #[allow(dead_code)]
     size: usize,
-    /// Timestamp
+    /// Timestamp (reserved for future use)
+    #[allow(dead_code)]
     timestamp: u64,
 }
 
@@ -196,7 +198,7 @@ impl RecordSegment {
     }
     
     /// Iterate over all records
-    pub fn iter_records(&self) -> RecordIterator {
+    pub fn iter_records(&self) -> RecordIterator<'_> {
         let current_pos = self.write_pos.load(Ordering::SeqCst);
         RecordIterator {
             segment: self,

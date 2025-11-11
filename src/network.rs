@@ -212,7 +212,8 @@ impl Message {
 
 /// Connection to a remote node
 pub struct Connection {
-    /// Remote address
+    /// Remote address (reserved for future use)
+    #[allow(dead_code)]
     addr: SocketAddr,
     /// TCP stream
     stream: TcpStream,

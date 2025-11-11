@@ -244,6 +244,7 @@ pub struct RaftNode {
 
 /// Commands to control Raft node
 #[derive(Debug)]
+#[allow(dead_code)]
 enum RaftCommand {
     /// Request to handle a vote request
     HandleVoteRequest(VoteRequest, mpsc::Sender<VoteResponse>),

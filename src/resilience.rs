@@ -6,11 +6,13 @@
 //! - Graceful degradation strategies
 //! - Corruption detection and recovery
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use parking_lot::RwLock;
 use thiserror::Error;
+
+#[cfg(test)]
+use std::sync::Arc;
 
 #[derive(Error, Debug)]
 pub enum ResilienceError {

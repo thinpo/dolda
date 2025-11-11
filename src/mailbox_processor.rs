@@ -30,12 +30,9 @@
 
 use crate::mailbox::{Mailbox, MailboxAddress, MailboxError, Message, MailboxSystem};
 use crate::datafusion_layer::DataFusionLayer;
-use crate::storage::SegmentManager;
 use async_trait::async_trait;
 use datafusion::arrow::record_batch::RecordBatch;
 use datafusion::arrow::json::writer::ArrayWriter;
-use parquet::arrow::arrow_writer::ArrowWriter;
-use parquet::file::properties::WriterProperties;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -455,6 +452,8 @@ impl MailboxProcessor for TransformProcessor {
 /// Parquet export processor - exports messages to Parquet files
 pub struct ParquetExportProcessor {
     output_dir: PathBuf,
+    /// Batch size (reserved for future use)
+    #[allow(dead_code)]
     batch_size: usize,
 }
 
@@ -549,7 +548,7 @@ mod tests {
             .await
             .unwrap();
         
-        let mailbox = system.create_mailbox("echo@dolda").await.unwrap();
+        let _mailbox = system.create_mailbox("echo@dolda").await.unwrap();
         let sender = system.create_mailbox("sender@dolda").await.unwrap();
         
         let processor = Arc::new(EchoProcessor);

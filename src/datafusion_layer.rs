@@ -44,7 +44,6 @@ use datafusion::arrow::array::{
 };
 use datafusion::arrow::datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit};
 use datafusion::datasource::{TableProvider, TableType};
-use datafusion::execution::context::SessionState;
 use datafusion::physical_plan::ExecutionPlan;
 use datafusion::logical_expr::Expr;
 use datafusion::dataframe::DataFrameWriteOptions;
@@ -163,7 +162,7 @@ impl DataFusionLayer {
 }
 
 /// Table provider that reads from DOLDA storage
-struct DoldaTableProvider {
+pub struct DoldaTableProvider {
     storage: Arc<SegmentManager>,
     schema: SchemaRef,
     data_field: String,
@@ -294,6 +293,8 @@ impl TableProvider for DoldaTableProvider {
 pub struct TableBuilder {
     storage: Arc<SegmentManager>,
     schema_fields: Vec<Field>,
+    /// Table name (reserved for future use)
+    #[allow(dead_code)]
     name: String,
 }
 
@@ -394,7 +395,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_simple_query() {
-        let (mut storage, _temp) = create_test_storage().await;
+        let (storage, _temp) = create_test_storage().await;
         
         // Insert some test data
         for i in 0..5 {

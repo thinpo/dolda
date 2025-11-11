@@ -8,7 +8,6 @@
 
 use crate::record::{Record, RecordError};
 use crate::storage::{RecordSegment, SegmentStats, StorageError};
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use thiserror::Error;
@@ -330,6 +329,7 @@ pub async fn merge_segments(
 mod observability_ext {
     use super::*;
     
+    #[allow(dead_code)]
     pub fn record_compaction(
         records_copied: u64,
         records_removed: u64,
@@ -354,7 +354,6 @@ mod observability_ext {
     }
 }
 
-use observability_ext::record_compaction;
 
 #[cfg(test)]
 mod tests {
