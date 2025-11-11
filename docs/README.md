@@ -18,6 +18,10 @@ Complete documentation for the DOLDA distributed persistent queue system.
 - **[DataFusion SQL](DATAFUSION_GUIDE.md)** - SQL queries over queue data
 - **[Mailbox Summary](MAILBOX_SUMMARY.md)** - Quick reference
 
+### Applications
+- **[HFT Trading Server](HFT_TRADING_GUIDE.md)** - Complete trading system example
+- **[Two-Trader Competition](TWO_TRADERS_GUIDE.md)** - Momentum vs Mean Reversion battle
+
 ### Deployment & Operations
 - **[Cluster Setup](CLUSTER_SETUP_GUIDE.md)** - Multi-node deployment
 - **[Docker & Kubernetes](DEPLOYMENT.md)** - Container orchestration
@@ -61,6 +65,12 @@ Complete documentation for the DOLDA distributed persistent queue system.
 **Understand architecture**
 → Read [Production Status](PRODUCTION_STATUS.md)
 
+**Build an HFT trading system**
+→ See [HFT Trading Guide](HFT_TRADING_GUIDE.md)
+
+**Watch traders compete**
+→ Run [Two-Trader Competition](TWO_TRADERS_GUIDE.md)
+
 ---
 
 ## 📖 Documentation Structure
@@ -73,6 +83,8 @@ docs/
 ├── MAILBOX_NETWORK_GUIDE.md    # TCP/UDP network access
 ├── MAILBOX_SUMMARY.md          # Quick reference
 ├── DATAFUSION_GUIDE.md         # SQL queries
+├── HFT_TRADING_GUIDE.md        # HFT trading server
+├── TWO_TRADERS_GUIDE.md        # Two-trader competition
 ├── CLUSTER_SETUP_GUIDE.md      # Multi-node deployment
 ├── DEPLOYMENT.md               # Docker & Kubernetes
 ├── DOCKER_K8S_SUMMARY.md       # Deployment reference
@@ -122,6 +134,9 @@ cargo run --example mailbox_example --release
 
 # Run network example
 cargo run --example mailbox_network_example --release
+
+# Run two-trader competition
+cargo run --example two_traders_competition --release
 
 # Run all tests
 cargo test --release
