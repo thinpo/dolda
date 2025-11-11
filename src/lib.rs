@@ -34,6 +34,7 @@ pub mod health; // Health check and monitoring server
 pub mod resilience; // Error recovery and resilience patterns
 pub mod datafusion_layer; // SQL query layer with Apache DataFusion
 pub mod mailbox; // Actor-like mailbox system for inter-queue messaging
+pub mod mailbox_processor; // Message processors with SQL query support
 
 // Error handling
 pub type Result<T> = std::result::Result<T, DOLDAError>;
